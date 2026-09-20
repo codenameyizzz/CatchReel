@@ -9,7 +9,9 @@ import {
   AlertCircle,
   Download,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  Smartphone,
+  ExternalLink,
 } from 'lucide-react';
 import { ReelItem } from '@/types/reel';
 
@@ -156,6 +158,36 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <div style={{ background: 'var(--color-paper-warmth)', padding: '10px 12px', borderRadius: '6px', fontFamily: 'monospace', fontSize: '0.78rem', color: 'var(--color-charcoal)', border: 'var(--border-hairline)' }}>
                 GEMINI_API_KEY=AQ.Ab8RN6L...<br />
                 GOOGLE_SHEETS_WEBHOOK_URL=https://script.google.com/macros/s/.../exec
+              </div>
+            </div>
+          </div>
+
+          {/* Android 1-Tap Share Guide */}
+          <div style={{ borderTop: 'var(--border-hairline)', paddingTop: '14px' }}>
+            <h4 style={{ fontSize: '0.92rem', fontWeight: 600, color: 'var(--color-ink-black)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Smartphone size={16} style={{ color: 'var(--color-notion-blue)' }} />
+              Simpan 1-Tap dari Instagram (Android)
+            </h4>
+            <div style={{ fontSize: '0.85rem', color: 'var(--color-graphite)', lineHeight: 1.6, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <p>
+                Anda tidak perlu lagi copy-paste link manual! Cukup pasang CatchReel sebagai aplikasi di HP Android Anda:
+              </p>
+              <ol style={{ paddingLeft: '18px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <li>Buka web ini di <strong>Google Chrome</strong> pada HP Android Anda.</li>
+                <li>Ketuk menu titik tiga (⋮) di pojok kanan atas Chrome &gt; pilih <strong>&quot;Instal Aplikasi&quot;</strong> atau <strong>&quot;Tambahkan ke Layar Utama&quot;</strong>.</li>
+                <li>Buka Instagram, saat melihat Reel menarik: ketuk <strong>Share (Pesawat Kertas) &gt; Bagikan ke... &gt; Pilih CatchReel</strong>.</li>
+              </ol>
+              <div style={{ marginTop: '4px' }}>
+                <a
+                  href="/share-target"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-secondary btn-sm"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <ExternalLink size={13} />
+                  Uji Coba Halaman Share Target
+                </a>
               </div>
             </div>
           </div>
