@@ -8,8 +8,9 @@ CatchReel adalah aplikasi web untuk mengarsipkan, menganalisis, dan melacak kont
 
 - Ekstraksi Otomatis: Mengambil nama akun kreator, judul konten, dan teks deskripsi asli dari tautan Instagram Reels maupun postingan umum.
 - Integrasi Berbagi Android: Mendukung Progressive Web App (PWA) Web Share Target sehingga pengguna dapat menyimpan reels langsung dari menu Bagikan (Share to...) di Instagram tanpa perlu menyalin tautan secara manual.
+- Isolasi Multi-Pengguna: Setiap pengguna memiliki ruang kerja dan riwayat koleksi pribadi. Pengguna dapat menghubungkan Google Spreadsheet milik masing-masing secara mandiri tanpa mencampuri atau melihat koleksi pengguna lain.
 - Analisis AI Terstruktur: Google Gemini AI membedah konten menjadi kategori topik, 3 hingga 5 poin utama pembelajaran, ringkasan kontekstual, dan saran tindakan praktis.
-- Sinkronisasi Google Sheets: Data tersimpan langsung ke Google Spreadsheet pengguna secara real-time melalui Google Apps Script Webhook atau Google Sheets API v4.
+- Sinkronisasi Google Sheets: Data tersimpan langsung ke Google Spreadsheet pengguna secara real-time melalui Google Apps Script Webhook.
 - Sesi Tinjau Berkala: Fitur pengacak materi yang belum dipelajari untuk mendorong pembelajaran berulang secara konsisten.
 - Manajemen Konten: Pencarian kata kunci, penyaringan berdasarkan topik, status peninjauan, penanda favorit, dan fitur salin ringkasan.
 
