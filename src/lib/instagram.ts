@@ -1,5 +1,6 @@
 /**
  * Instagram URL Parser and Multi-Strategy Metadata Extractor
+ * Optimized for Cloud Environments (Vercel / AWS Lambda) and Local Environments
  */
 
 export interface ExtractedMeta {
@@ -33,7 +34,6 @@ export function parseInstagramUrl(rawUrl: string): { isValid: boolean; normalize
       return { isValid: true, normalizedUrl, shortcode };
     }
 
-    // If it's a general instagram url
     if (pathname.length > 3) {
       return { isValid: true, normalizedUrl: trimmed.split('?')[0], shortcode: null };
     }
@@ -57,6 +57,13 @@ function cleanHtmlEntities(str: string): string {
     .trim();
 }
 
+function isValidCreator(creator: string | undefined): boolean {
+  if (!creator) return false;
+  const lower = creator.toLowerCase().replace(/^@/, '').trim();
+  const invalidNames = ['instagram', 'login', 'signup', 'accounts', 'explore', 'reels', 'p', 'reel', ''];
+  return !invalidNames.includes(lower);
+}
+
 function parseFromOgTags(html: string): { creator?: string; caption?: string; thumbnail?: string } {
   let creator: string | undefined;
   let caption: string | undefined;
@@ -75,16 +82,13 @@ function parseFromOgTags(html: string): { creator?: string; caption?: string; th
   const rawDesc = descMatch && descMatch[1] ? descMatch[1] : '';
   const rawTitle = titleMatch && titleMatch[1] ? titleMatch[1] : '';
 
-  // 1. Extract creator username from description:
-  // e.g. "32K likes, 180 comments - narado_n on September 8, 2026: ..."
-  // or "6,137 likes, 448 comments - elev8ted.path pada September 8, 2026: ..."
+  // 1. Extract creator username from description
   if (rawDesc) {
     const authorMatch = rawDesc.match(/-\s*([A-Za-z0-9._]+)\s+(?:on|pada)\s+/i);
-    if (authorMatch && authorMatch[1] && authorMatch[1].toLowerCase() !== 'instagram') {
+    if (authorMatch && authorMatch[1] && isValidCreator(authorMatch[1])) {
       creator = `@${authorMatch[1]}`;
     }
 
-    // Extract caption text from description (content between quotes or after ": ")
     const captionQuotes = rawDesc.match(/:\s*(?:&quot;|"|“)([\s\S]*?)(?:&quot;|"|”)\.?\s*$/i) ||
                           rawDesc.match(/:\s*(?:&quot;|"|“)([\s\S]*)/i);
     if (captionQuotes && captionQuotes[1]) {
@@ -93,14 +97,13 @@ function parseFromOgTags(html: string): { creator?: string; caption?: string; th
   }
 
   // 2. Creator and caption fallback from title
-  // e.g. "Elevated Path di Instagram: "Want to make smarter decisions?..."
   if (rawTitle) {
     if (!creator) {
       const titleAuthor = rawTitle.match(/^([^:]+)\s+(?:on Instagram|di Instagram):/i);
       if (titleAuthor && titleAuthor[1]) {
-        const cleaned = titleAuthor[1].trim();
-        if (cleaned.toLowerCase() !== 'instagram') {
-          creator = cleaned.startsWith('@') ? cleaned : `@${cleaned.replace(/\s+/g, '_').toLowerCase()}`;
+        const candidate = titleAuthor[1].trim();
+        if (isValidCreator(candidate)) {
+          creator = candidate.startsWith('@') ? candidate : `@${candidate.replace(/\s+/g, '_').toLowerCase()}`;
         }
       }
     }
@@ -127,7 +130,39 @@ export async function fetchInstagramMetadata(url: string): Promise<ExtractedMeta
     ? `https://www.instagram.com/reel/${parsed.shortcode}/`
     : result.normalizedUrl;
 
-  // Strategy 1: Mobile User-Agent (Most reliable for public reels metadata)
+  // Strategy 1: Official Public Instagram API v1 oEmbed Endpoint (Most reliable from Vercel/Cloud IPs)
+  try {
+    const oembedUrl = `https://www.instagram.com/api/v1/oembed/?url=${encodeURIComponent(targetUrl)}`;
+    const oembedRes = await fetch(oembedUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7',
+      },
+      cache: 'no-store',
+    });
+
+    if (oembedRes.ok) {
+      const data = await oembedRes.json();
+      if (data.author_name && isValidCreator(data.author_name)) {
+        result.creator = `@${data.author_name.replace(/^@/, '')}`;
+      }
+      if (data.title && typeof data.title === 'string') {
+        result.caption = cleanHtmlEntities(data.title);
+      }
+      if (data.thumbnail_url) {
+        result.thumbnail = data.thumbnail_url;
+      }
+
+      if (result.creator && result.caption && result.caption.length > 10) {
+        return result;
+      }
+    }
+  } catch (err) {
+    console.warn('[Instagram Metadata] Strategy 1 (oEmbed v1) failed:', err);
+  }
+
+  // Strategy 2: Mobile Safari User-Agent
   try {
     const mobileRes = await fetch(targetUrl, {
       headers: {
@@ -141,20 +176,19 @@ export async function fetchInstagramMetadata(url: string): Promise<ExtractedMeta
     if (mobileRes.ok) {
       const html = await mobileRes.text();
       const og = parseFromOgTags(html);
-      if (og.creator) result.creator = og.creator;
+      if (isValidCreator(og.creator)) result.creator = og.creator;
       if (og.caption && og.caption.length > 10) result.caption = og.caption;
       if (og.thumbnail) result.thumbnail = og.thumbnail;
 
-      // If we got both creator and caption, return immediately!
       if (result.creator && result.caption) {
         return result;
       }
     }
   } catch (err) {
-    console.warn('Strategy 1 (Mobile UA) failed:', err);
+    console.warn('[Instagram Metadata] Strategy 2 (Mobile UA) failed:', err);
   }
 
-  // Strategy 2: Facebook / WhatsApp Crawler User-Agent
+  // Strategy 3: Facebook / WhatsApp Crawler User-Agent
   try {
     const crawlerRes = await fetch(targetUrl, {
       headers: {
@@ -168,39 +202,12 @@ export async function fetchInstagramMetadata(url: string): Promise<ExtractedMeta
     if (crawlerRes.ok) {
       const html = await crawlerRes.text();
       const og = parseFromOgTags(html);
-      if (!result.creator && og.creator) result.creator = og.creator;
+      if (!result.creator && isValidCreator(og.creator)) result.creator = og.creator;
       if (!result.caption && og.caption && og.caption.length > 10) result.caption = og.caption;
       if (!result.thumbnail && og.thumbnail) result.thumbnail = og.thumbnail;
-
-      if (result.creator && result.caption) {
-        return result;
-      }
     }
   } catch (err) {
-    console.warn('Strategy 2 (Facebook Crawler) failed:', err);
-  }
-
-  // Strategy 3: Embed endpoint fallback
-  if (parsed.shortcode && (!result.creator || !result.caption)) {
-    try {
-      const embedUrl = `https://www.instagram.com/reel/${parsed.shortcode}/embed/captioned/`;
-      const embedRes = await fetch(embedUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        },
-        cache: 'no-store',
-      });
-
-      if (embedRes.ok) {
-        const html = await embedRes.text();
-        const og = parseFromOgTags(html);
-        if (!result.creator && og.creator) result.creator = og.creator;
-        if (!result.caption && og.caption) result.caption = og.caption;
-      }
-    } catch (err) {
-      console.warn('Strategy 3 (Embed) failed:', err);
-    }
+    console.warn('[Instagram Metadata] Strategy 3 (Facebook Crawler) failed:', err);
   }
 
   return result;
