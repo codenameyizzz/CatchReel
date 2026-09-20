@@ -44,6 +44,8 @@ export const SaveReelCard: React.FC<SaveReelCardProps> = ({ onSave }) => {
   const [previewData, setPreviewData] = useState<{
     creator: string;
     title: string;
+    originalCaption?: string;
+    thumbnail?: string;
     topic: ReelTopic;
     keyPoints: string[];
     summary: string;
@@ -109,6 +111,8 @@ export const SaveReelCard: React.FC<SaveReelCardProps> = ({ onSave }) => {
         url: url.trim(),
         creator: previewData.creator || '@creator',
         title: previewData.title || 'Inspirasi Reel',
+        originalCaption: previewData.originalCaption || previewData.summary,
+        thumbnail: previewData.thumbnail,
         topic: previewData.topic,
         dateSaved: today,
         keyPoints: previewData.keyPoints,
@@ -139,22 +143,22 @@ export const SaveReelCard: React.FC<SaveReelCardProps> = ({ onSave }) => {
       <div className="capture-header">
         <div>
           <h2 className="capture-title">
-            <Sparkles size={18} style={{ color: '#6366F1' }} />
-            Simpan & Analisis Reels Baru
+            <Sparkles size={18} style={{ color: 'var(--color-notion-blue)' }} />
+            Simpan & Analisis Konten Baru
           </h2>
           <p className="capture-desc">
-            Tempel tautan video Instagram reels untuk ekstraksi poin utama dan kategorisasi otomatis dengan Gemini AI
+            Tempel tautan Instagram Reels maupun Postingan biasa (Feed / Carousel / Video) untuk ekstraksi poin utama otomatis dengan Gemini AI
           </p>
         </div>
       </div>
 
       <div className="input-row">
         <div className="input-wrapper">
-          <LinkIcon size={18} className="input-icon" />
+          <LinkIcon size={17} className="input-icon" />
           <input
             type="text"
             className="main-input"
-            placeholder="https://www.instagram.com/reel/C8xyz... atau /p/..."
+            placeholder="Tempel tautan Instagram: https://www.instagram.com/reel/... atau /p/..."
             value={url}
             onChange={(e) => {
               setUrl(e.target.value);
@@ -261,10 +265,10 @@ export const SaveReelCard: React.FC<SaveReelCardProps> = ({ onSave }) => {
               value={previewData.topic}
               onChange={(e) => setPreviewData({ ...previewData, topic: e.target.value as ReelTopic })}
               style={{
-                background: 'var(--bg-app)',
-                color: 'var(--text-primary)',
-                border: '1px solid var(--border-subtle)',
-                borderRadius: 'var(--radius-sm)',
+                background: 'var(--color-paper-warmth)',
+                color: 'var(--color-charcoal)',
+                border: 'var(--border-hairline)',
+                borderRadius: '6px',
                 padding: '4px 10px',
                 fontSize: '0.82rem',
                 cursor: 'pointer'
@@ -278,6 +282,12 @@ export const SaveReelCard: React.FC<SaveReelCardProps> = ({ onSave }) => {
             </select>
           </div>
 
+          {previewData.thumbnail && (
+            <div className="modal-thumbnail-container" style={{ marginBottom: '12px', maxHeight: '180px' }}>
+              <img src={previewData.thumbnail} alt={previewData.title} className="modal-thumbnail-img" />
+            </div>
+          )}
+
           <div className="preview-grid">
             <div>
               <h3 className="preview-title">{previewData.title}</h3>
@@ -285,12 +295,17 @@ export const SaveReelCard: React.FC<SaveReelCardProps> = ({ onSave }) => {
             </div>
           </div>
 
-          <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginBottom: '12px' }}>
-            {previewData.summary}
-          </p>
+          {previewData.originalCaption && (
+            <div className="modal-original-caption-box" style={{ marginBottom: '12px' }}>
+              <div className="modal-section-label">Deskripsi Asli Postingan:</div>
+              <p style={{ fontSize: '0.86rem', color: 'var(--color-charcoal)', lineHeight: 1.5, maxHeight: '100px', overflowY: 'auto', whiteSpace: 'pre-wrap' }}>
+                {previewData.originalCaption}
+              </p>
+            </div>
+          )}
 
           <div className="preview-keypoints">
-            <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '2px' }}>
+            <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-charcoal)', marginBottom: '4px' }}>
               Poin-Poin Utama Pembelajaran:
             </div>
             {previewData.keyPoints.map((point, idx) => (

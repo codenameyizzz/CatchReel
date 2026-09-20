@@ -57,15 +57,15 @@ export const Header: React.FC<HeaderProps> = ({
           style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
         >
           {isSheetsConnected ? (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#34D399' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#16a34a', fontWeight: 600 }}>
               <CheckCircle2 size={14} /> Sheets Terhubung
             </span>
           ) : (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#FBBF24' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#d97706', fontWeight: 600 }}>
               <AlertCircle size={14} /> Setup Sheets
             </span>
           )}
-          <Settings size={15} style={{ marginLeft: '4px', color: 'var(--text-secondary)' }} />
+          <Settings size={14} style={{ marginLeft: '2px', color: 'var(--color-stone)' }} />
         </button>
       </div>
     </header>

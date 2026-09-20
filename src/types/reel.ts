@@ -14,6 +14,8 @@ export interface ReelItem {
   url: string;
   creator: string; // e.g., @creativename
   title: string;
+  originalCaption?: string; // Original untranslated caption from Instagram
+  thumbnail?: string; // Thumbnail preview image
   topic: ReelTopic;
   dateSaved: string; // YYYY-MM-DD or formatted
   keyPoints: string[]; // 3-5 main points
@@ -36,11 +38,14 @@ export interface AnalyzeReelResponse {
   data?: {
     creator: string;
     title: string;
+    originalCaption?: string;
+    thumbnail?: string;
     topic: ReelTopic;
     keyPoints: string[];
     summary: string;
     actionableTip: string;
     tags: string[];
+    url: string;
   };
   error?: string;
 }
