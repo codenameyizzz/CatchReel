@@ -17,10 +17,12 @@ import {
   Sparkles,
   ChevronRight,
   ShieldCheck,
+  Link as LinkIcon,
+  Code2,
 } from 'lucide-react';
 import { ReelItem } from '@/types/reel';
 
-const USER_WEBHOOK_KEY = 'catchreel_user_webhook_v1';
+const USER_TARGET_KEY = 'catchreel_user_webhook_v1';
 
 const APPS_SCRIPT_TEMPLATE = `function setupHeaders(sheet) {
   var headers = ['ID', 'Tanggal Simpan', 'Akun / Channel', 'Kategori / Tema', 'Judul', 'Poin-Poin Utama', 'Ringkasan', 'Tips Praktis', 'Link Instagram', 'Status', 'Favorit', 'Tags'];
@@ -108,31 +110,67 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onRefreshSheets,
   onDisconnectSheets,
 }) => {
+  const [activeTab, setActiveTab] = useState<'link' | 'webhook'>('link');
+
+  // Link mode inputs
+  const [sheetUrlInput, setSheetUrlInput] = useState('');
+  // Webhook mode inputs
   const [webhookInput, setWebhookInput] = useState('');
-  const [currentWebhook, setCurrentWebhook] = useState<string | null>(null);
+
+  const [currentTarget, setCurrentTarget] = useState<string | null>(null);
+  const [targetType, setTargetType] = useState<'link' | 'webhook' | null>(null);
+
+  const [botEmail, setBotEmail] = useState<string | null>(null);
+  const [copiedBotEmail, setCopiedBotEmail] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
+
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{
     connected: boolean;
     spreadsheetTitle?: string;
     error?: string;
+    type?: 'webhook' | 'service_account';
   } | null>(null);
-  const [copiedCode, setCopiedCode] = useState(false);
+
   const [showSetupGuide, setShowSetupGuide] = useState(false);
 
   useEffect(() => {
-    const saved = localStorage.getItem(USER_WEBHOOK_KEY);
+    // 1. Load active target from localStorage
+    const saved = localStorage.getItem(USER_TARGET_KEY);
     if (saved) {
-      setCurrentWebhook(saved);
-      setWebhookInput(saved);
+      setCurrentTarget(saved);
+      if (saved.startsWith('https://script.google.com/')) {
+        setTargetType('webhook');
+        setWebhookInput(saved);
+        setActiveTab('webhook');
+      } else {
+        setTargetType('link');
+        setSheetUrlInput(saved);
+        setActiveTab('link');
+      }
     }
+
+    // 2. Fetch server bot info
+    fetch('/api/sheets/bot-info')
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.botEmail) {
+          setBotEmail(data.botEmail);
+        }
+      })
+      .catch(() => {});
   }, []);
 
-  const handleSaveAndConnect = async (urlToTest?: string) => {
-    const targetUrl = (urlToTest || webhookInput).trim();
-    if (!targetUrl) {
+  const handleSaveAndConnect = async (customInput?: string) => {
+    const raw = customInput || (activeTab === 'link' ? sheetUrlInput : webhookInput);
+    const target = raw.trim();
+
+    if (!target) {
       setTestResult({
         connected: false,
-        error: 'Silakan masukkan URL Webhook Google Apps Script Anda.',
+        error: activeTab === 'link'
+          ? 'Silakan masukkan tautan Google Sheets Anda.'
+          : 'Silakan masukkan URL Webhook Google Apps Script Anda.',
       });
       return;
     }
@@ -144,14 +182,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       const res = await fetch('/api/sheets/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ webhookUrl: targetUrl }),
+        body: JSON.stringify({ target }),
       });
       const data = await res.json();
       setTestResult(data);
 
       if (data.connected) {
-        localStorage.setItem(USER_WEBHOOK_KEY, targetUrl);
-        setCurrentWebhook(targetUrl);
+        localStorage.setItem(USER_TARGET_KEY, target);
+        setCurrentTarget(target);
+        setTargetType(data.type === 'webhook' ? 'webhook' : 'link');
         await onRefreshSheets();
       }
     } catch (err: any) {
@@ -165,11 +204,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   const handleDisconnect = () => {
-    localStorage.removeItem(USER_WEBHOOK_KEY);
-    setCurrentWebhook(null);
+    localStorage.removeItem(USER_TARGET_KEY);
+    setCurrentTarget(null);
+    setTargetType(null);
+    setSheetUrlInput('');
     setWebhookInput('');
     setTestResult(null);
     onDisconnectSheets();
+  };
+
+  const handleCopyBotEmail = () => {
+    if (!botEmail) return;
+    navigator.clipboard.writeText(botEmail);
+    setCopiedBotEmail(true);
+    setTimeout(() => setCopiedBotEmail(false), 2500);
   };
 
   const handleCopyCode = () => {
@@ -188,14 +236,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     downloadAnchor.remove();
   };
 
-  const maskWebhook = (url: string) => {
-    if (url.length <= 35) return url;
-    return url.slice(0, 32) + '••••••••' + url.slice(-8);
+  const maskTarget = (target: string) => {
+    if (target.length <= 32) return target;
+    return target.slice(0, 24) + '••••••••' + target.slice(-8);
   };
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '640px' }}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '660px' }}>
+        {/* Header */}
         <div className="modal-header">
           <div className="modal-title">
             <Database size={18} style={{ color: 'var(--color-notion-blue)' }} />
@@ -206,7 +255,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           </button>
         </div>
 
-        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
           {/* Status Box */}
           <div
             style={{
@@ -229,13 +278,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div>
                   <div style={{ fontWeight: 600, fontSize: '0.92rem', color: 'var(--color-ink-black)' }}>
                     {isSheetsConnected
-                      ? 'Google Spreadsheet Pribadi Terhubung'
+                      ? targetType === 'link'
+                        ? 'Google Spreadsheet Terhubung (Mode Link Langsung)'
+                        : 'Google Spreadsheet Terhubung (Mode Webhook Apps Script)'
                       : 'Mode Penyimpanan Lokal (Perangkat Ini)'}
                   </div>
                   <div style={{ fontSize: '0.82rem', color: 'var(--color-graphite)', marginTop: '2px', lineHeight: 1.5 }}>
                     {isSheetsConnected
-                      ? `Reels tersimpan langsung ke Google Spreadsheet milik Anda (${maskWebhook(currentWebhook || '')}).`
-                      : 'Koleksi reels Anda saat ini hanya tersimpan di peramban ini. Hubungkan Google Spreadsheet pribadi Anda agar tersimpan permanen di cloud.'}
+                      ? `Reels tersimpan langsung ke Google Spreadsheet milik Anda (${maskTarget(currentTarget || '')}).`
+                      : 'Koleksi reels Anda saat ini hanya tersimpan di peramban ini. Hubungkan Google Spreadsheet Anda agar tersimpan permanen di cloud.'}
                   </div>
                 </div>
               </div>
@@ -243,10 +294,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               {isSheetsConnected && (
                 <button
                   type="button"
-                  onClick={() => handleSaveAndConnect()}
+                  onClick={() => handleSaveAndConnect(currentTarget || '')}
                   className="btn btn-outline btn-sm"
                   disabled={testing}
-                  title="Segarkan Sinkronisasi"
+                  title="Segarkan Koneksi"
                 >
                   {testing ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
                   <span>Uji</span>
@@ -255,7 +306,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
 
             {isSheetsConnected && (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingTop: '6px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingTop: '4px' }}>
                 <button
                   type="button"
                   onClick={handleDisconnect}
@@ -289,108 +340,254 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           )}
 
-          {/* Connect / Change Webhook Section */}
+          {/* Connection Method Tabs */}
           <div style={{ borderTop: 'var(--border-hairline)', paddingTop: '16px' }}>
-            <h4 style={{ fontSize: '0.92rem', fontWeight: 600, color: 'var(--color-ink-black)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <ShieldCheck size={16} style={{ color: 'var(--color-notion-blue)' }} />
-              {isSheetsConnected ? 'Ganti Spreadsheet Anda' : 'Hubungkan Spreadsheet Anda'}
-            </h4>
-            <p style={{ fontSize: '0.82rem', color: 'var(--color-graphite)', marginBottom: '12px' }}>
-              Setiap pengguna memiliki Google Spreadsheet masing-masing. Masukkan URL Webhook Google Apps Script dari spreadsheet Anda.
-            </p>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+              <h4 style={{ fontSize: '0.92rem', fontWeight: 600, color: 'var(--color-ink-black)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <ShieldCheck size={16} style={{ color: 'var(--color-notion-blue)' }} />
+                Pilih Metode Penghubung Spreadsheet:
+              </h4>
+            </div>
 
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <input
-                type="text"
-                className="notion-input"
-                placeholder="https://script.google.com/macros/s/.../exec"
-                value={webhookInput}
-                onChange={(e) => setWebhookInput(e.target.value)}
-                style={{ fontSize: '0.85rem' }}
-              />
+            {/* Tab Selector Buttons */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: '8px',
+                background: 'var(--color-paper-warmth)',
+                padding: '4px',
+                borderRadius: '8px',
+                marginBottom: '16px',
+              }}
+            >
               <button
                 type="button"
-                onClick={() => handleSaveAndConnect()}
-                disabled={testing || !webhookInput.trim()}
-                className="btn-notion-primary"
-                style={{ padding: '8px 16px', whiteSpace: 'nowrap' }}
+                onClick={() => setActiveTab('link')}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  background: activeTab === 'link' ? 'var(--color-pure-white)' : 'transparent',
+                  color: activeTab === 'link' ? 'var(--color-notion-blue)' : 'var(--color-stone)',
+                  fontWeight: activeTab === 'link' ? 600 : 500,
+                  fontSize: '0.84rem',
+                  boxShadow: activeTab === 'link' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
               >
-                {testing ? <Loader2 size={15} className="animate-spin" /> : <span>Hubungkan</span>}
+                <LinkIcon size={14} />
+                <span>Tempel Link (Paling Mudah)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('webhook')}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  padding: '8px 12px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  background: activeTab === 'webhook' ? 'var(--color-pure-white)' : 'transparent',
+                  color: activeTab === 'webhook' ? 'var(--color-notion-blue)' : 'var(--color-stone)',
+                  fontWeight: activeTab === 'webhook' ? 600 : 500,
+                  fontSize: '0.84rem',
+                  boxShadow: activeTab === 'webhook' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <Code2 size={14} />
+                <span>Webhook Apps Script</span>
               </button>
             </div>
 
-            {/* Accordion Guide: How to create own sheet */}
-            <div style={{ marginTop: '12px' }}>
-              <button
-                type="button"
-                onClick={() => setShowSetupGuide(!showSetupGuide)}
-                className="btn-notion-link"
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.83rem' }}
-              >
-                <ChevronRight
-                  size={14}
-                  style={{
-                    transform: showSetupGuide ? 'rotate(90deg)' : 'none',
-                    transition: 'transform 0.15s ease',
-                  }}
-                />
-                <span>Belum punya spreadsheet? Klik panduan 1 menit di sini</span>
-              </button>
-
-              {showSetupGuide && (
+            {/* TAB 1: DIRECT LINK VIA SERVICE ACCOUNT */}
+            {activeTab === 'link' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div
                   style={{
-                    marginTop: '10px',
-                    padding: '14px',
+                    padding: '12px 14px',
                     borderRadius: '8px',
-                    background: 'var(--color-paper-warmth)',
-                    border: 'var(--border-hairline)',
-                    fontSize: '0.83rem',
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    fontSize: '0.82rem',
                     color: 'var(--color-charcoal)',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '12px',
+                    gap: '8px',
                   }}
                 >
-                  <div>
-                    <strong>Langkah 1:</strong> Buat salinan template Google Sheet CatchReel ke Google Drive Anda:
-                    <div style={{ marginTop: '6px' }}>
-                      <a
-                        href="https://docs.google.com/spreadsheets/d/1428TU9rqcKAcAaro5vkOfz7WNFaQKSf7eCIV3faCq1w/copy"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="btn btn-secondary btn-sm"
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                      >
-                        <ExternalLink size={13} />
-                        Buat Salinan Spreadsheet (1-Klik)
-                      </a>
-                    </div>
+                  <div style={{ fontWeight: 600, color: 'var(--color-ink-black)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>Langkah 1: Bagikan Spreadsheet Anda ke Bot CatchReel</span>
                   </div>
+                  <p style={{ color: 'var(--color-graphite)', lineHeight: 1.45 }}>
+                    Buka Google Sheet Anda &gt; Klik tombol <strong>Bagikan (Share)</strong> &gt; Masukkan email bot di bawah ini sebagai <strong>Editor</strong>:
+                  </p>
 
-                  <div>
-                    <strong>Langkah 2:</strong> Salin kode Google Apps Script di bawah ini:
-                    <div style={{ marginTop: '6px' }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      background: 'var(--color-pure-white)',
+                      padding: '6px 10px',
+                      borderRadius: '6px',
+                      border: 'var(--border-hairline)',
+                      gap: '8px',
+                    }}
+                  >
+                    <span style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--color-ink-black)', wordBreak: 'break-all' }}>
+                      {botEmail || 'Kredensial Service Account belum disetel di Vercel'}
+                    </span>
+                    {botEmail && (
                       <button
                         type="button"
-                        onClick={handleCopyCode}
+                        onClick={handleCopyBotEmail}
                         className="btn btn-outline btn-sm"
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                        style={{ padding: '3px 8px', fontSize: '0.76rem', flexShrink: 0 }}
                       >
-                        {copiedCode ? <Check size={13} className="text-emerald" /> : <Copy size={13} />}
-                        <span>{copiedCode ? 'Tersalin ke Clipboard!' : 'Salin Kode Webhook Apps Script'}</span>
+                        {copiedBotEmail ? <Check size={12} className="text-emerald" /> : <Copy size={12} />}
+                        <span>{copiedBotEmail ? 'Tersalin' : 'Salin'}</span>
                       </button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <strong>Langkah 3:</strong> Di spreadsheet Anda, buka menu <strong>Ekstensi &gt; Apps Script</strong>.
-                    Tempel kode tersebut, klik <strong>Deploy &gt; New deployment &gt; Web app</strong>.
-                    Setel <em>Who has access: Anyone</em>, lalu salin URL Web app tersebut dan tempel ke kolom input di atas.
+                    )}
                   </div>
                 </div>
-              )}
-            </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 600, color: 'var(--color-ink-black)', marginBottom: '6px' }}>
+                    Langkah 2: Tempel Link Google Sheets Anda
+                  </label>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <input
+                      type="text"
+                      className="notion-input"
+                      placeholder="https://docs.google.com/spreadsheets/d/1abc.../edit"
+                      value={sheetUrlInput}
+                      onChange={(e) => setSheetUrlInput(e.target.value)}
+                      style={{ fontSize: '0.85rem' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleSaveAndConnect()}
+                      disabled={testing || !sheetUrlInput.trim()}
+                      className="btn-notion-primary"
+                      style={{ padding: '8px 16px', whiteSpace: 'nowrap' }}
+                    >
+                      {testing ? <Loader2 size={15} className="animate-spin" /> : <span>Hubungkan</span>}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 2: APPS SCRIPT WEBHOOK */}
+            {activeTab === 'webhook' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <p style={{ fontSize: '0.82rem', color: 'var(--color-graphite)', lineHeight: 1.5 }}>
+                  Metode ini menggunakan Google Apps Script Webhook. Cocok jika Anda ingin mengelola logika spreadsheet sendiri secara independen.
+                </p>
+
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    className="notion-input"
+                    placeholder="https://script.google.com/macros/s/.../exec"
+                    value={webhookInput}
+                    onChange={(e) => setWebhookInput(e.target.value)}
+                    style={{ fontSize: '0.85rem' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleSaveAndConnect()}
+                    disabled={testing || !webhookInput.trim()}
+                    className="btn-notion-primary"
+                    style={{ padding: '8px 16px', whiteSpace: 'nowrap' }}
+                  >
+                    {testing ? <Loader2 size={15} className="animate-spin" /> : <span>Hubungkan</span>}
+                  </button>
+                </div>
+
+                {/* Accordion Guide: How to create own sheet webhook */}
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setShowSetupGuide(!showSetupGuide)}
+                    className="btn-notion-link"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.83rem' }}
+                  >
+                    <ChevronRight
+                      size={14}
+                      style={{
+                        transform: showSetupGuide ? 'rotate(90deg)' : 'none',
+                        transition: 'transform 0.15s ease',
+                      }}
+                    />
+                    <span>Petunjuk cara membuat Webhook Google Apps Script</span>
+                  </button>
+
+                  {showSetupGuide && (
+                    <div
+                      style={{
+                        marginTop: '10px',
+                        padding: '14px',
+                        borderRadius: '8px',
+                        background: 'var(--color-paper-warmth)',
+                        border: 'var(--border-hairline)',
+                        fontSize: '0.83rem',
+                        color: 'var(--color-charcoal)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '12px',
+                      }}
+                    >
+                      <div>
+                        <strong>1. Salin Template Spreadsheet:</strong>
+                        <div style={{ marginTop: '6px' }}>
+                          <a
+                            href="https://docs.google.com/spreadsheets/d/1428TU9rqcKAcAaro5vkOfz7WNFaQKSf7eCIV3faCq1w/copy"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn btn-secondary btn-sm"
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                          >
+                            <ExternalLink size={13} />
+                            Buat Salinan Spreadsheet (1-Klik)
+                          </a>
+                        </div>
+                      </div>
+
+                      <div>
+                        <strong>2. Salin Kode Google Apps Script:</strong>
+                        <div style={{ marginTop: '6px' }}>
+                          <button
+                            type="button"
+                            onClick={handleCopyCode}
+                            className="btn btn-outline btn-sm"
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                          >
+                            {copiedCode ? <Check size={13} className="text-emerald" /> : <Copy size={13} />}
+                            <span>{copiedCode ? 'Tersalin ke Clipboard!' : 'Salin Kode Webhook Apps Script'}</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <strong>3. Deploy Web App:</strong> Buka <strong>Ekstensi &gt; Apps Script</strong> pada spreadsheet Anda, tempel kode tersebut, lalu klik <strong>Deploy &gt; New deployment &gt; Web app</strong> (pilih <em>Who has access: Anyone</em>). Salin Web app URL dan tempelkan pada kolom di atas.
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Android Share Guide */}
@@ -399,14 +596,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               <Smartphone size={16} style={{ color: 'var(--color-notion-blue)' }} />
               Simpan 1-Tap dari Instagram (Android)
             </h4>
-            <div style={{ fontSize: '0.83rem', color: 'var(--color-graphite)', lineHeight: 1.6, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div style={{ fontSize: '0.83rem', color: 'var(--color-graphite)', lineHeight: 1.6, display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <p>
                 Anda tidak perlu copy-paste link manual dari Instagram:
               </p>
               <ol style={{ paddingLeft: '18px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                <li>Buka web ini di <strong>Google Chrome</strong> HP Android Anda.</li>
-                <li>Ketuk menu titik tiga (⋮) di Chrome &gt; pilih <strong>&quot;Instal Aplikasi&quot;</strong>.</li>
-                <li>Di Instagram, ketuk <strong>Share (Pesawat Kertas) &gt; Bagikan ke... &gt; CatchReel</strong>. Data otomatis masuk ke spreadsheet yang Anda hubungkan!</li>
+                <li>Buka web ini di <strong>Google Chrome</strong> HP Android Anda &gt; Titik tiga (⋮) &gt; <strong>&quot;Instal Aplikasi&quot;</strong>.</li>
+                <li>Di Instagram, ketuk <strong>Share (Pesawat Kertas) &gt; Bagikan ke... &gt; CatchReel</strong>. Data otomatis tersimpan ke spreadsheet Anda!</li>
               </ol>
             </div>
           </div>

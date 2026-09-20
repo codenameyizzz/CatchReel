@@ -10,7 +10,7 @@ CatchReel adalah aplikasi web untuk mengarsipkan, menganalisis, dan melacak kont
 - Integrasi Berbagi Android: Mendukung Progressive Web App (PWA) Web Share Target sehingga pengguna dapat menyimpan reels langsung dari menu Bagikan (Share to...) di Instagram tanpa perlu menyalin tautan secara manual.
 - Isolasi Multi-Pengguna: Setiap pengguna memiliki ruang kerja dan riwayat koleksi pribadi. Pengguna dapat menghubungkan Google Spreadsheet milik masing-masing secara mandiri tanpa mencampuri atau melihat koleksi pengguna lain.
 - Analisis AI Terstruktur: Google Gemini AI membedah konten menjadi kategori topik, 3 hingga 5 poin utama pembelajaran, ringkasan kontekstual, dan saran tindakan praktis.
-- Sinkronisasi Google Sheets: Data tersimpan langsung ke Google Spreadsheet pengguna secara real-time melalui Google Apps Script Webhook.
+- Sinkronisasi Google Sheets: Data tersimpan langsung ke Google Spreadsheet pengguna secara real-time melalui tempel tautan langsung dokumen spreadsheet (Service Account) atau melalui Google Apps Script Webhook.
 - Sesi Tinjau Berkala: Fitur pengacak materi yang belum dipelajari untuk mendorong pembelajaran berulang secara konsisten.
 - Manajemen Konten: Pencarian kata kunci, penyaringan berdasarkan topik, status peninjauan, penanda favorit, dan fitur salin ringkasan.
 
@@ -60,8 +60,10 @@ CatchReel adalah aplikasi web untuk mengarsipkan, menganalisis, dan melacak kont
 
    Isi variabel yang diperlukan:
    - GEMINI_API_KEY: Kunci API dari Google AI Studio.
-   - GOOGLE_SHEETS_WEBHOOK_URL: URL penerapan web app Google Apps Script dari spreadsheet Anda.
-   - GOOGLE_SHEET_ID: ID spreadsheet dari URL dokumen Google Sheets Anda.
+   - GOOGLE_SERVICE_ACCOUNT_EMAIL: Email Service Account dari Google Cloud Console (opsional, untuk fitur tempel link spreadsheet).
+   - GOOGLE_PRIVATE_KEY: Private key Service Account (opsional, untuk fitur tempel link spreadsheet).
+   - GOOGLE_SHEETS_WEBHOOK_URL: URL penerapan web app Google Apps Script (opsional, sebagai cadangan/alternatif webhook).
+   - GOOGLE_SHEET_ID: ID spreadsheet default jika dijalankan dalam mode pengguna tunggal.
 
 4. Jalankan server pengembangan:
    npm run dev
@@ -77,6 +79,9 @@ CatchReel adalah aplikasi web untuk mengarsipkan, menganalisis, dan melacak kont
 2. Masuk ke dashboard Vercel dan buat project baru dari repositori tersebut.
 3. Tambahkan environment variables pada pengaturan project di Vercel:
    - GEMINI_API_KEY
-   - GOOGLE_SHEETS_WEBHOOK_URL
-   - GOOGLE_SHEET_ID
+   - GOOGLE_SERVICE_ACCOUNT_EMAIL (opsional)
+   - GOOGLE_PRIVATE_KEY (opsional)
+   - GOOGLE_SHEETS_WEBHOOK_URL (opsional)
+   - GOOGLE_SHEET_ID (opsional)
 4. Lakukan deployment. Aplikasi siap digunakan secara daring.
+

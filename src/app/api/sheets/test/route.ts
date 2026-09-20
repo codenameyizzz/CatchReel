@@ -4,8 +4,16 @@ import { testSheetsConnection } from '@/lib/sheets';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const webhook = req.headers.get('x-sheets-webhook') || body.webhookUrl || '';
-    const result = await testSheetsConnection(webhook);
+    const target =
+      req.headers.get('x-sheets-target') ||
+      req.headers.get('x-sheets-webhook') ||
+      body.target ||
+      body.sheetUrl ||
+      body.spreadsheetId ||
+      body.webhookUrl ||
+      body.webhook ||
+      '';
+    const result = await testSheetsConnection(target);
     return NextResponse.json(result);
   } catch (error: any) {
     return NextResponse.json({
@@ -18,8 +26,15 @@ export async function POST(req: NextRequest) {
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const webhook = req.headers.get('x-sheets-webhook') || searchParams.get('webhook') || '';
-    const result = await testSheetsConnection(webhook);
+    const target =
+      req.headers.get('x-sheets-target') ||
+      req.headers.get('x-sheets-webhook') ||
+      searchParams.get('target') ||
+      searchParams.get('sheetUrl') ||
+      searchParams.get('spreadsheetId') ||
+      searchParams.get('webhook') ||
+      '';
+    const result = await testSheetsConnection(target);
     return NextResponse.json(result);
   } catch (error: any) {
     return NextResponse.json({
