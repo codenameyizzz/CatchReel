@@ -8,11 +8,16 @@ import { FilterBar } from '@/components/FilterBar';
 import { ReelCard } from '@/components/ReelCard';
 import { ReelDetailModal } from '@/components/ReelDetailModal';
 import { SettingsModal } from '@/components/SettingsModal';
-import { INITIAL_MOCK_REELS } from '@/data/mockReels';
 import { ReelItem, ReelStatus } from '@/types/reel';
-import { CheckCircle2, AlertCircle, Inbox } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Inbox, Database } from 'lucide-react';
 
 const LOCAL_STORAGE_KEY = 'reels_hub_items_v1';
+const USER_WEBHOOK_KEY = 'catchreel_user_webhook_v1';
+
+function getUserWebhook(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem(USER_WEBHOOK_KEY);
+}
 
 export default function Home() {
   const [items, setItems] = useState<ReelItem[]>([]);
@@ -38,54 +43,6 @@ export default function Home() {
     }, 3500);
   };
 
-  // Load items on mount
-  const fetchReels = async () => {
-    try {
-      const res = await fetch('/api/sheets');
-      const data = await res.json();
-
-      if (data.connected && Array.isArray(data.items) && data.items.length > 0) {
-        setItems(data.items);
-        setIsSheetsConnected(true);
-      } else {
-        setIsSheetsConnected(Boolean(data.connected));
-        // Check local storage
-        const savedLocal = localStorage.getItem(LOCAL_STORAGE_KEY);
-        if (savedLocal) {
-          try {
-            const parsed = JSON.parse(savedLocal);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              setItems(parsed);
-              return;
-            }
-          } catch {
-            // ignore
-          }
-        }
-        // Fallback to initial mock reels
-        setItems(INITIAL_MOCK_REELS);
-      }
-    } catch {
-      // Offline / fallback to local storage or mock
-      const savedLocal = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (savedLocal) {
-        try {
-          setItems(JSON.parse(savedLocal));
-        } catch {
-          setItems(INITIAL_MOCK_REELS);
-        }
-      } else {
-        setItems(INITIAL_MOCK_REELS);
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchReels();
-  }, []);
-
   // Save to local storage whenever items change
   const persistItems = (newItems: ReelItem[]) => {
     setItems(newItems);
@@ -96,13 +53,72 @@ export default function Home() {
     }
   };
 
+  // Load items on mount or when webhook changes
+  const fetchReels = async () => {
+    setIsLoading(true);
+    try {
+      const userWebhook = getUserWebhook();
+      if (userWebhook) {
+        const res = await fetch('/api/sheets', {
+          headers: { 'x-sheets-webhook': userWebhook },
+        });
+        const data = await res.json();
+
+        if (data.connected && Array.isArray(data.items)) {
+          setItems(data.items);
+          setIsSheetsConnected(true);
+          persistItems(data.items);
+          return;
+        }
+      }
+
+      // If no webhook configured on this browser, run in Local-First isolation mode
+      setIsSheetsConnected(false);
+      const savedLocal = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (savedLocal) {
+        try {
+          const parsed = JSON.parse(savedLocal);
+          if (Array.isArray(parsed)) {
+            setItems(parsed);
+            return;
+          }
+        } catch {
+          // ignore
+        }
+      }
+      setItems([]);
+    } catch {
+      // Offline fallback to local storage
+      const savedLocal = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (savedLocal) {
+        try {
+          setItems(JSON.parse(savedLocal));
+        } catch {
+          setItems([]);
+        }
+      } else {
+        setItems([]);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchReels();
+  }, []);
+
   // Add new Reel
   const handleSaveNewReel = async (item: ReelItem) => {
+    const userWebhook = getUserWebhook();
     try {
       const res = await fetch('/api/sheets', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(item),
+        headers: {
+          'Content-Type': 'application/json',
+          ...(userWebhook ? { 'x-sheets-webhook': userWebhook } : {}),
+        },
+        body: JSON.stringify({ item, webhookUrl: userWebhook }),
       });
 
       const data = await res.json();
@@ -111,11 +127,11 @@ export default function Home() {
 
       if (data.connected) {
         setIsSheetsConnected(true);
-        showToast('✓ Berhasil dianalisis dan tersimpan ke Google Sheets!');
+        showToast('✓ Berhasil dianalisis dan tersimpan ke Google Sheets Anda!');
       } else {
-        showToast('✓ Berhasil disimpan di browser. Hubungkan Google Sheets di Settings untuk sinkronisasi cloud.', 'success');
+        showToast('✓ Berhasil disimpan di browser. Hubungkan Google Sheets di Pengaturan untuk sinkronisasi cloud.', 'success');
       }
-    } catch (error: any) {
+    } catch {
       // Save locally anyway
       const updated = [item, ...items];
       persistItems(updated);
@@ -133,10 +149,14 @@ export default function Home() {
     }
 
     try {
+      const userWebhook = getUserWebhook();
       await fetch('/api/sheets', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, status: newStatus }),
+        headers: {
+          'Content-Type': 'application/json',
+          ...(userWebhook ? { 'x-sheets-webhook': userWebhook } : {}),
+        },
+        body: JSON.stringify({ id, status: newStatus, webhookUrl: userWebhook }),
       });
       showToast(`Status diubah menjadi: ${newStatus}`);
     } catch {
@@ -154,10 +174,14 @@ export default function Home() {
     }
 
     try {
+      const userWebhook = getUserWebhook();
       await fetch('/api/sheets', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, isFavorite }),
+        headers: {
+          'Content-Type': 'application/json',
+          ...(userWebhook ? { 'x-sheets-webhook': userWebhook } : {}),
+        },
+        body: JSON.stringify({ id, isFavorite, webhookUrl: userWebhook }),
       });
       showToast(isFavorite ? 'Ditambahkan ke Favorit ⭐' : 'Dihapus dari Favorit');
     } catch {
@@ -166,48 +190,40 @@ export default function Home() {
   };
 
   // Delete Item
-  const handleDeleteItem = (id: string) => {
+  const handleDeleteItem = async (id: string) => {
     const updated = items.filter((it) => it.id !== id);
     persistItems(updated);
-    setActiveDetailItem(null);
-    showToast('Reel dihapus dari daftar.');
+    if (activeDetailItem?.id === id) {
+      setActiveDetailItem(null);
+    }
+    showToast('Reel dihapus dari daftar lokal.');
   };
 
-  // Filter items
+  // Filter and Search Logic
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
-      // Search query filter
-      if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase();
-        const matchTitle = item.title.toLowerCase().includes(query);
-        const matchCreator = item.creator.toLowerCase().includes(query);
-        const matchSummary = item.summary.toLowerCase().includes(query);
-        const matchKeyPoints = item.keyPoints.some((kp) => kp.toLowerCase().includes(query));
-        const matchTags = item.tags.some((t) => t.toLowerCase().includes(query));
+      const matchSearch =
+        searchQuery === '' ||
+        item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.creator.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.summary.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.tags.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase()));
 
-        if (!matchTitle && !matchCreator && !matchSummary && !matchKeyPoints && !matchTags) {
-          return false;
-        }
-      }
+      const matchTopic = selectedTopic === 'all' || item.topic === selectedTopic;
 
-      // Topic filter
-      if (selectedTopic !== 'all' && item.topic !== selectedTopic) {
-        return false;
-      }
-
-      // Status filter
+      let matchStatus = true;
       if (selectedStatus === 'favorite') {
-        if (!item.isFavorite) return false;
-      } else if (selectedStatus !== 'all' && item.status !== selectedStatus) {
-        return false;
+        matchStatus = item.isFavorite;
+      } else if (selectedStatus !== 'all') {
+        matchStatus = item.status === selectedStatus;
       }
 
-      return true;
+      return matchSearch && matchTopic && matchStatus;
     });
   }, [items, searchQuery, selectedTopic, selectedStatus]);
 
-  const unreviewedCount = useMemo(() => {
-    return items.filter((i) => i.status === 'Belum Ditinjau').length;
+  const unreviewedItems = useMemo(() => {
+    return items.filter((it) => it.status === 'Belum Ditinjau');
   }, [items]);
 
   return (
@@ -215,18 +231,55 @@ export default function Home() {
       {/* Header */}
       <Header
         totalCount={items.length}
-        unreviewedCount={unreviewedCount}
+        unreviewedCount={unreviewedItems.length}
         isSheetsConnected={isSheetsConnected}
         onOpenSettings={() => setShowSettings(true)}
       />
 
-      {/* Main Save & AI Extractor Form */}
+      {/* Spaced Review Widget */}
+      <RevisitWidget
+        items={items}
+        onUpdateStatus={handleUpdateStatus}
+      />
+
+      {/* Quick Capture Input Card */}
       <SaveReelCard onSave={handleSaveNewReel} />
 
-      {/* Spaced Revisit Feature (Solves the "Never opened again" issue) */}
-      <RevisitWidget items={items} onUpdateStatus={handleUpdateStatus} />
+      {/* Local Mode Notice Banner */}
+      {!isSheetsConnected && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '10px 16px',
+            borderRadius: 'var(--radius-buttons)',
+            background: '#fffbeb',
+            border: '1px solid #fef3c7',
+            marginBottom: '20px',
+            fontSize: '0.84rem',
+            gap: '12px',
+            flexWrap: 'wrap',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#92400e' }}>
+            <Database size={15} style={{ flexShrink: 0 }} />
+            <span>
+              <strong>Ruang Kerja Pribadi (Mode Lokal):</strong> Koleksi tersimpan di browser ini. Hubungkan Google Spreadsheet pribadi Anda untuk sinkronisasi cloud otomatis.
+            </span>
+          </div>
+          <button
+            type="button"
+            className="btn btn-outline btn-sm"
+            onClick={() => setShowSettings(true)}
+            style={{ fontSize: '0.8rem', padding: '4px 10px', whiteSpace: 'nowrap' }}
+          >
+            Hubungkan Spreadsheet
+          </button>
+        </div>
+      )}
 
-      {/* Filter & Search Toolbar */}
+      {/* Filter and Search Bar */}
       <FilterBar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
@@ -236,7 +289,7 @@ export default function Home() {
         onSelectStatus={setSelectedStatus}
       />
 
-      {/* Grid of Reel Cards */}
+      {/* Main Grid View */}
       {filteredItems.length > 0 ? (
         <div className="reels-grid">
           {filteredItems.map((item) => (
@@ -254,13 +307,15 @@ export default function Home() {
           <div className="empty-icon-box">
             <Inbox size={26} />
           </div>
-          <h3 className="empty-title">Tidak ada reels yang sesuai</h3>
+          <h3 className="empty-title">
+            {items.length === 0 ? 'Belum Ada Koleksi Reels' : 'Tidak ada reels yang sesuai filter'}
+          </h3>
           <p className="empty-desc">
-            {searchQuery || selectedTopic !== 'all' || selectedStatus !== 'all'
-              ? 'Coba ganti kata kunci pencarian atau bersihkan filter yang aktif.'
-              : 'Mulai simpan reels inspirasi pertama Anda menggunakan form di atas.'}
+            {items.length === 0
+              ? 'Mulai simpan dan rangkum reels atau postingan Instagram edukatif pertama Anda menggunakan formulir di atas.'
+              : 'Coba ganti kata kunci pencarian atau bersihkan filter yang aktif.'}
           </p>
-          {(searchQuery || selectedTopic !== 'all' || selectedStatus !== 'all') && (
+          {items.length > 0 && (searchQuery || selectedTopic !== 'all' || selectedStatus !== 'all') && (
             <button
               type="button"
               className="btn btn-secondary btn-sm"
@@ -294,6 +349,10 @@ export default function Home() {
           isSheetsConnected={isSheetsConnected}
           items={items}
           onRefreshSheets={fetchReels}
+          onDisconnectSheets={() => {
+            setIsSheetsConnected(false);
+            showToast('Koneksi Google Spreadsheet diputuskan. Sekarang menggunakan penyimpanan lokal.');
+          }}
         />
       )}
 

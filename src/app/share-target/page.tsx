@@ -23,6 +23,7 @@ function ShareTargetContent() {
   const [status, setStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [savedItem, setSavedItem] = useState<ReelItem | null>(null);
+  const [isSheetsSaved, setIsSheetsSaved] = useState(false);
   const [copied, setCopied] = useState(false);
   const [manualUrl, setManualUrl] = useState('');
 
@@ -43,12 +44,15 @@ function ShareTargetContent() {
     setErrorMessage('');
 
     try {
+      const userWebhook = typeof window !== 'undefined' ? localStorage.getItem('catchreel_user_webhook_v1') : null;
+
       const res = await fetch('/api/quick-save', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(userWebhook ? { 'x-sheets-webhook': userWebhook } : {}),
         },
-        body: JSON.stringify({ text: input }),
+        body: JSON.stringify({ text: input, webhook: userWebhook }),
       });
 
       const data = await res.json();
@@ -58,6 +62,17 @@ function ShareTargetContent() {
       }
 
       setSavedItem(data.item);
+      setIsSheetsSaved(Boolean(data.sheetsConnected));
+
+      // Also persist to local storage items so it's instantly available in the user's dashboard
+      try {
+        const LOCAL_STORAGE_KEY = 'reels_hub_items_v1';
+        const existing = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || '[]');
+        if (Array.isArray(existing)) {
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify([data.item, ...existing]));
+        }
+      } catch {}
+
       setStatus('success');
     } catch (err: any) {
       console.error('Quick save error:', err);
@@ -122,7 +137,9 @@ function ShareTargetContent() {
           <div className="share-success-content">
             <div className="share-success-badge">
               <CheckCircle2 size={16} className="text-emerald" />
-              <span>Tersimpan di Google Sheets</span>
+              <span>
+                {isSheetsSaved ? 'Tersimpan di Google Sheets Pribadi' : 'Tersimpan di Penyimpanan Lokal'}
+              </span>
             </div>
 
             <div className="share-item-header">
