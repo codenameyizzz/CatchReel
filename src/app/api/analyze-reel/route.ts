@@ -40,6 +40,7 @@ export async function POST(req: NextRequest) {
       success: true,
       data: {
         ...analysis,
+        originalCaption: effectiveCaption || meta.caption || '',
         url: normalizedUrl,
         thumbnail: meta.thumbnail,
       },

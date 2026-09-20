@@ -1,16 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import {
-  ExternalLink,
-  Star,
-  CheckCircle2,
-  Copy,
-  Check,
-  MoreHorizontal,
-  Clock,
-  BookOpen
-} from 'lucide-react';
+import React from 'react';
+import { Star, Clock, CheckCircle2, BookOpen, ExternalLink } from 'lucide-react';
 import { ReelItem, ReelStatus, ReelTopic } from '@/types/reel';
 
 interface ReelCardProps {
@@ -36,21 +27,10 @@ export const ReelCard: React.FC<ReelCardProps> = ({
   onToggleFavorite,
   onSelectDetail,
 }) => {
-  const [copied, setCopied] = useState(false);
-
   const topicClass = TOPIC_BADGE_MAP[item.topic] || 'badge-topic-other';
 
-  const handleCopySummary = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    const textToCopy = `📌 ${item.title}\nKreator: ${item.creator}\nTopik: ${item.topic}\n\nPoin Utama:\n${item.keyPoints.map((p) => `• ${p}`).join('\n')}\n\nLink: ${item.url}`;
-    try {
-      await navigator.clipboard.writeText(textToCopy);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // ignore
-    }
-  };
+  // Display original untranslated caption or title
+  const displayContent = item.originalCaption || item.title;
 
   const cycleStatus = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -63,13 +43,12 @@ export const ReelCard: React.FC<ReelCardProps> = ({
   };
 
   return (
-    <div className="reel-card" onClick={() => onSelectDetail(item)} style={{ cursor: 'pointer' }}>
+    <div className="reel-card" onClick={() => onSelectDetail(item)}>
       <div>
-        {/* Top Meta */}
+        {/* Top Meta: Category Badge & Favorite Button */}
         <div className="card-top">
           <div className="card-meta-row">
             <span className={`badge ${topicClass}`}>{item.topic}</span>
-            <span className="card-date">{item.dateSaved}</span>
           </div>
 
           <button
@@ -81,38 +60,25 @@ export const ReelCard: React.FC<ReelCardProps> = ({
             }}
             title={item.isFavorite ? 'Hapus dari Favorit' : 'Tandai Favorit'}
           >
-            <Star size={16} fill={item.isFavorite ? '#FBBF24' : 'none'} />
+            <Star size={16} fill={item.isFavorite ? '#ffb110' : 'none'} />
           </button>
         </div>
 
-        {/* Creator & Title */}
-        <div style={{ marginBottom: '6px' }}>
-          <span className="card-creator">{item.creator}</span>
+        {/* Creator Handle */}
+        <div className="card-creator">
+          <span>{item.creator}</span>
         </div>
-        <h3 className="card-title">{item.title}</h3>
 
-        {/* Summary */}
-        <p className="card-summary">{item.summary}</p>
-
-        {/* Key Points Takeaway */}
-        <div className="card-points-list">
-          {item.keyPoints.slice(0, 3).map((point, idx) => (
-            <div key={idx} className="card-point-item">
-              <CheckCircle2 size={14} />
-              <span>{point}</span>
-            </div>
-          ))}
-          {item.keyPoints.length > 3 && (
-            <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)', marginTop: '2px' }}>
-              +{item.keyPoints.length - 3} poin lainnya...
-            </div>
-          )}
+        {/* Original Untranslated Caption / Title */}
+        <div className="card-original-title" title={displayContent}>
+          {displayContent}
         </div>
       </div>
 
-      {/* Footer */}
+      {/* Footer: Date & Status Badge */}
       <div className="card-footer">
-        {/* Status Toggle Button */}
+        <span className="card-date">{item.dateSaved}</span>
+
         <button
           type="button"
           onClick={cycleStatus}
@@ -124,45 +90,22 @@ export const ReelCard: React.FC<ReelCardProps> = ({
               : 'badge-status-pending'
           }`}
           title="Klik untuk mengubah status tinjau"
-          style={{ cursor: 'pointer', border: 'none' }}
+          style={{ cursor: 'pointer' }}
         >
           {item.status === 'Selesai' ? (
             <>
-              <CheckCircle2 size={13} /> Selesai
+              <CheckCircle2 size={12} /> Selesai
             </>
           ) : item.status === 'Sedang Dipelajari' ? (
             <>
-              <BookOpen size={13} /> Dipelajari
+              <BookOpen size={12} /> Sedang Dipelajari
             </>
           ) : (
             <>
-              <Clock size={13} /> Belum Ditinjau
+              <Clock size={12} /> Belum Ditinjau
             </>
           )}
         </button>
-
-        <div className="card-actions-group">
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm"
-            onClick={handleCopySummary}
-            title="Salin Poin & Ringkasan"
-          >
-            {copied ? <Check size={14} style={{ color: '#34D399' }} /> : <Copy size={14} />}
-          </button>
-
-          <a
-            href={item.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn btn-secondary btn-sm"
-            onClick={(e) => e.stopPropagation()}
-            title="Buka di Instagram"
-          >
-            <ExternalLink size={14} />
-            Buka Reel
-          </a>
-        </div>
       </div>
     </div>
   );
