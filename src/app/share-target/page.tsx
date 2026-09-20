@@ -89,7 +89,7 @@ function ShareTargetContent() {
       {/* Top Navigation */}
       <div className="share-target-header">
         <Link href="/" className="share-target-brand">
-          <span className="brand-dot"></span>
+          <img src="/icons/icon-192.png" alt="CatchReel" style={{ width: '22px', height: '22px', borderRadius: '4px', objectFit: 'cover' }} />
           <span>CatchReel</span>
         </Link>
         <button
