@@ -112,19 +112,34 @@ export const RevisitWidget: React.FC<RevisitWidgetProps> = ({ items, onUpdateSta
             </div>
 
             <div className="modal-body">
-              {/* Thumbnail if available */}
-              {activeReviewItem.thumbnail && (
-                <div className="modal-thumbnail-container">
-                  <img
-                    src={activeReviewItem.thumbnail}
-                    alt={activeReviewItem.title}
-                    className="modal-thumbnail-img"
-                    onError={(e) => {
-                      (e.target as HTMLElement).style.display = 'none';
-                    }}
-                  />
-                </div>
-              )}
+              {/* Thumbnail with fallback and no-referrer */}
+              {(() => {
+                const shortcode = activeReviewItem.url.match(/\/(?:reel|reels|p|share\/reel)\/([A-Za-z0-9_-]+)/)?.[1];
+                const fallbackThumb = shortcode ? `https://www.instagram.com/p/${shortcode}/media/?size=l` : null;
+                const thumbSrc = activeReviewItem.thumbnail || fallbackThumb;
+
+                if (!thumbSrc) return null;
+
+                return (
+                  <div className="modal-thumbnail-container">
+                    <img
+                      src={thumbSrc}
+                      alt={activeReviewItem.title}
+                      className="modal-thumbnail-img"
+                      referrerPolicy="no-referrer"
+                      loading="lazy"
+                      onError={(e) => {
+                        const target = e.currentTarget;
+                        if (fallbackThumb && target.src !== fallbackThumb) {
+                          target.src = fallbackThumb;
+                        } else {
+                          target.style.display = 'none';
+                        }
+                      }}
+                    />
+                  </div>
+                );
+              })()}
 
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
                 <span className={`badge ${TOPIC_BADGE_MAP[activeReviewItem.topic] || 'badge-topic-other'}`} style={{ fontSize: '0.8rem' }}>

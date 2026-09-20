@@ -81,19 +81,34 @@ export const ReelDetailModal: React.FC<ReelDetailModalProps> = ({
 
         {/* Body */}
         <div className="modal-body">
-          {/* Thumbnail Preview */}
-          {item.thumbnail && (
-            <div className="modal-thumbnail-container">
-              <img
-                src={item.thumbnail}
-                alt={item.title}
-                className="modal-thumbnail-img"
-                onError={(e) => {
-                  (e.target as HTMLElement).style.display = 'none';
-                }}
-              />
-            </div>
-          )}
+          {/* Thumbnail Preview with no-referrer & automatic fallback */}
+          {(() => {
+            const shortcode = item.url.match(/\/(?:reel|reels|p|share\/reel)\/([A-Za-z0-9_-]+)/)?.[1];
+            const fallbackThumb = shortcode ? `https://www.instagram.com/p/${shortcode}/media/?size=l` : null;
+            const thumbSrc = item.thumbnail || fallbackThumb;
+
+            if (!thumbSrc) return null;
+
+            return (
+              <div className="modal-thumbnail-container">
+                <img
+                  src={thumbSrc}
+                  alt={item.title}
+                  className="modal-thumbnail-img"
+                  referrerPolicy="no-referrer"
+                  loading="lazy"
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    if (fallbackThumb && target.src !== fallbackThumb) {
+                      target.src = fallbackThumb;
+                    } else {
+                      target.style.display = 'none';
+                    }
+                  }}
+                />
+              </div>
+            );
+          })()}
 
           {/* Meta Bar */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>

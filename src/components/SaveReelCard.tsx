@@ -143,22 +143,22 @@ export const SaveReelCard: React.FC<SaveReelCardProps> = ({ onSave }) => {
       <div className="capture-header">
         <div>
           <h2 className="capture-title">
-            <Sparkles size={18} style={{ color: '#6366F1' }} />
-            Simpan & Analisis Reels Baru
+            <Sparkles size={18} style={{ color: 'var(--color-notion-blue)' }} />
+            Simpan & Analisis Konten Baru
           </h2>
           <p className="capture-desc">
-            Tempel tautan video Instagram reels untuk ekstraksi poin utama dan kategorisasi otomatis dengan Gemini AI
+            Tempel tautan Instagram Reels maupun Postingan biasa (Feed / Carousel / Video) untuk ekstraksi poin utama otomatis dengan Gemini AI
           </p>
         </div>
       </div>
 
       <div className="input-row">
         <div className="input-wrapper">
-          <LinkIcon size={18} className="input-icon" />
+          <LinkIcon size={17} className="input-icon" />
           <input
             type="text"
             className="main-input"
-            placeholder="https://www.instagram.com/reel/C8xyz... atau /p/..."
+            placeholder="Tempel tautan Instagram: https://www.instagram.com/reel/... atau /p/..."
             value={url}
             onChange={(e) => {
               setUrl(e.target.value);
