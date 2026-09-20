@@ -7,26 +7,31 @@ import {
 } from '@/lib/sheets';
 import { ReelItem } from '@/types/reel';
 
-function extractWebhook(req: NextRequest): string | null {
-  const fromHeader = req.headers.get('x-sheets-webhook');
-  if (fromHeader && fromHeader.trim()) {
-    return fromHeader.trim();
-  }
+function extractTarget(req: NextRequest): string | null {
+  const fromTargetHeader = req.headers.get('x-sheets-target');
+  if (fromTargetHeader && fromTargetHeader.trim()) return fromTargetHeader.trim();
+
+  const fromWebhookHeader = req.headers.get('x-sheets-webhook');
+  if (fromWebhookHeader && fromWebhookHeader.trim()) return fromWebhookHeader.trim();
+
   try {
     const { searchParams } = new URL(req.url);
-    const fromQuery = searchParams.get('webhook');
-    if (fromQuery && fromQuery.trim()) {
-      return fromQuery.trim();
-    }
+    const fromQuery =
+      searchParams.get('target') ||
+      searchParams.get('webhook') ||
+      searchParams.get('sheetUrl') ||
+      searchParams.get('spreadsheetId');
+    if (fromQuery && fromQuery.trim()) return fromQuery.trim();
   } catch {}
+
   return null;
 }
 
 export async function GET(req: NextRequest) {
   try {
-    const userWebhook = extractWebhook(req);
+    const userTarget = extractTarget(req);
 
-    if (!isSheetsConfigured(userWebhook)) {
+    if (!isSheetsConfigured(userTarget)) {
       return NextResponse.json({
         success: true,
         connected: false,
@@ -35,7 +40,7 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const items = await readReelsFromSheet(userWebhook);
+    const items = await readReelsFromSheet(userTarget);
     return NextResponse.json({
       success: true,
       connected: true,
@@ -54,7 +59,14 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const item: ReelItem = body.item || body;
-    const userWebhook = req.headers.get('x-sheets-webhook') || body.webhookUrl || extractWebhook(req);
+    const userTarget =
+      req.headers.get('x-sheets-target') ||
+      req.headers.get('x-sheets-webhook') ||
+      body.target ||
+      body.sheetTarget ||
+      body.sheetUrl ||
+      body.webhookUrl ||
+      extractTarget(req);
 
     if (!item.url || !item.creator || !item.title) {
       return NextResponse.json(
@@ -63,8 +75,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!isSheetsConfigured(userWebhook)) {
-      // Return success with connected: false so client can store locally in their browser
+    if (!isSheetsConfigured(userTarget)) {
       return NextResponse.json({
         success: true,
         connected: false,
@@ -73,7 +84,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const result = await appendReelToSheet(item, userWebhook);
+    const result = await appendReelToSheet(item, userTarget);
     if (!result.success) {
       return NextResponse.json(
         { success: false, error: result.error || 'Gagal menyimpan ke Google Sheets.' },
@@ -99,13 +110,20 @@ export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json();
     const { id, status, isFavorite, notes } = body;
-    const userWebhook = req.headers.get('x-sheets-webhook') || body.webhookUrl || extractWebhook(req);
+    const userTarget =
+      req.headers.get('x-sheets-target') ||
+      req.headers.get('x-sheets-webhook') ||
+      body.target ||
+      body.sheetTarget ||
+      body.sheetUrl ||
+      body.webhookUrl ||
+      extractTarget(req);
 
     if (!id) {
       return NextResponse.json({ success: false, error: 'ID reel wajib disertakan.' }, { status: 400 });
     }
 
-    if (!isSheetsConfigured(userWebhook)) {
+    if (!isSheetsConfigured(userTarget)) {
       return NextResponse.json({
         success: true,
         connected: false,
@@ -113,7 +131,7 @@ export async function PATCH(req: NextRequest) {
       });
     }
 
-    const result = await updateReelInSheet(id, { status, isFavorite, notes }, userWebhook);
+    const result = await updateReelInSheet(id, { status, isFavorite, notes }, userTarget);
     if (!result.success) {
       return NextResponse.json({ success: false, error: result.error }, { status: 500 });
     }

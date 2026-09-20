@@ -7,24 +7,34 @@ import { ReelItem } from '@/types/reel';
 export async function POST(req: NextRequest) {
   try {
     let rawInput = '';
-    let webhookFromPayload = '';
+    let targetFromPayload = '';
 
     const contentType = req.headers.get('content-type') || '';
     if (contentType.includes('application/json')) {
       const body = await req.json();
       rawInput = body.url || body.text || '';
-      webhookFromPayload = body.webhook || body.webhookUrl || '';
+      targetFromPayload = body.target || body.sheetTarget || body.sheetUrl || body.spreadsheetId || body.webhook || body.webhookUrl || '';
     } else if (contentType.includes('application/x-www-form-urlencoded') || contentType.includes('multipart/form-data')) {
       const formData = await req.formData();
       rawInput = (formData.get('url') as string) || (formData.get('text') as string) || '';
-      webhookFromPayload = (formData.get('webhook') as string) || (formData.get('webhookUrl') as string) || '';
+      targetFromPayload =
+        (formData.get('target') as string) ||
+        (formData.get('sheetUrl') as string) ||
+        (formData.get('webhook') as string) ||
+        (formData.get('webhookUrl') as string) ||
+        '';
     } else {
       const text = await req.text();
       rawInput = text;
     }
 
-    const userWebhook = req.headers.get('x-sheets-webhook') || webhookFromPayload || null;
-    return await processQuickSave(rawInput, userWebhook);
+    const userTarget =
+      req.headers.get('x-sheets-target') ||
+      req.headers.get('x-sheets-webhook') ||
+      targetFromPayload ||
+      null;
+
+    return await processQuickSave(rawInput, userTarget);
   } catch (error: any) {
     console.error('API /api/quick-save POST error:', error);
     return NextResponse.json(
@@ -38,8 +48,16 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const rawInput = searchParams.get('url') || searchParams.get('text') || searchParams.get('title') || '';
-    const userWebhook = req.headers.get('x-sheets-webhook') || searchParams.get('webhook') || null;
-    return await processQuickSave(rawInput, userWebhook);
+    const userTarget =
+      req.headers.get('x-sheets-target') ||
+      req.headers.get('x-sheets-webhook') ||
+      searchParams.get('target') ||
+      searchParams.get('sheetUrl') ||
+      searchParams.get('spreadsheetId') ||
+      searchParams.get('webhook') ||
+      null;
+
+    return await processQuickSave(rawInput, userTarget);
   } catch (error: any) {
     console.error('API /api/quick-save GET error:', error);
     return NextResponse.json(
@@ -49,7 +67,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-async function processQuickSave(rawInput: string, userWebhook?: string | null) {
+async function processQuickSave(rawInput: string, userTarget?: string | null) {
   const trimmed = (rawInput || '').trim();
   if (!trimmed) {
     return NextResponse.json(
@@ -109,8 +127,8 @@ async function processQuickSave(rawInput: string, userWebhook?: string | null) {
   // 5. Append to Google Sheets if configured by the user
   let sheetsConnected = false;
   let sheetsError: string | null = null;
-  if (isSheetsConfigured(userWebhook)) {
-    const sheetRes = await appendReelToSheet(newItem, userWebhook);
+  if (isSheetsConfigured(userTarget)) {
+    const sheetRes = await appendReelToSheet(newItem, userTarget);
     sheetsConnected = sheetRes.success;
     if (!sheetRes.success) {
       sheetsError = sheetRes.error || 'Gagal menyimpan ke Google Sheets pribadi.';
