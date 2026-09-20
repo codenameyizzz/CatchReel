@@ -1,6 +1,6 @@
-# ReelsHub
+# CatchReel
 
-ReelsHub adalah aplikasi web untuk mengarsipkan, menganalisis, dan melacak konten edukatif dari Instagram Reels ke Google Sheets menggunakan bantuan model Google Gemini AI. Aplikasi ini dirancang untuk mengatasi masalah konten inspirasi atau pembelajaran yang sering disimpan di media sosial namun tidak pernah dibuka atau ditinjau kembali.
+CatchReel adalah aplikasi web untuk mengarsipkan, menganalisis, dan melacak konten edukatif dari Instagram Reels ke Google Sheets menggunakan bantuan model Google Gemini AI. Aplikasi ini dirancang untuk mengatasi masalah konten inspirasi atau pembelajaran yang sering disimpan di media sosial namun tidak pernah dibuka atau ditinjau kembali.
 
 ---
 

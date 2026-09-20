@@ -24,7 +24,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
         <div>
           <div className="brand-title">
-            ReelsHub
+            CatchReel
             <span className="brand-badge">Tracker & AI Hub</span>
           </div>
           <p className="brand-subtitle">

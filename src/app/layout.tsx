@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "ReelsHub — Instagram Knowledge & Learning Tracker",
+  title: "CatchReel — Instagram Knowledge & Learning Tracker",
   description:
     "Simpan, rangkum poin penting dengan AI, dan lacak reels Instagram edukatif ke Google Sheets agar tidak terlupakan.",
 };
