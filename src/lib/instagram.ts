@@ -11,11 +11,22 @@ export interface ExtractedMeta {
   thumbnail?: string;
 }
 
+export function extractInstagramUrlFromText(text: string): string | null {
+  if (!text) return null;
+  const match = text.match(/https?:\/\/(?:www\.)?(?:instagram\.com|instagr\.am)\/(?:reel|reels|p|share\/reel)\/([A-Za-z0-9_-]+)[^\s]*/i);
+  return match ? match[0] : null;
+}
+
 export function parseInstagramUrl(rawUrl: string): { isValid: boolean; normalizedUrl: string; shortcode: string | null } {
   try {
-    const trimmed = rawUrl.trim();
+    let trimmed = rawUrl.trim();
     if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
-      return { isValid: false, normalizedUrl: '', shortcode: null };
+      const extracted = extractInstagramUrlFromText(trimmed);
+      if (extracted) {
+        trimmed = extracted;
+      } else {
+        return { isValid: false, normalizedUrl: '', shortcode: null };
+      }
     }
 
     const parsed = new URL(trimmed);
