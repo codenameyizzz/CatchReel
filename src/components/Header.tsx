@@ -19,8 +19,8 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="header">
       <div className="brand-section">
-        <div className="brand-icon-box">
-          <BookmarkCheck size={24} strokeWidth={2.2} />
+        <div className="brand-icon-box" style={{ overflow: 'hidden', padding: 0 }}>
+          <img src="/icons/icon-192.png" alt="CatchReel" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         </div>
         <div>
           <div className="brand-title">
